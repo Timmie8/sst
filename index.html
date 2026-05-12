@@ -6,116 +6,161 @@
 
 <style>
 body {
-  margin: 0;
   font-family: Arial;
   background: #0f172a;
   color: white;
 }
 
-header {
-  text-align: center;
-  padding: 20px;
-  font-size: 26px;
-}
-
 .container {
-  max-width: 1200px;
+  max-width: 1000px;
   margin: auto;
-  padding: 10px;
 }
 
-.box {
+.card {
   background: #1e293b;
   padding: 15px;
   margin: 10px 0;
   border-radius: 10px;
 }
 
+.buy { border-left: 5px solid #22c55e; }
+.sell { border-left: 5px solid #ef4444; }
+
+.alert {
+  background: red;
+  padding: 10px;
+  text-align: center;
+  display: none;
+}
 </style>
 </head>
 
 <body>
 
-<header>📈 Pro Trading Dashboard</header>
-
 <div class="container">
 
-<!-- 🔎 SYMBOL SEARCH -->
-<div class="box">
-  <h3>🔎 Zoek aandeel</h3>
+<h2>📈 Trading Dashboard (Strategy)</h2>
 
-  <div class="tradingview-widget-container">
-    <div id="tv-search"></div>
-    <script src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-search.js">
-    {
-      "width": "100%",
-      "height": "400",
-      "locale": "nl",
-      "colorTheme": "dark"
+<div id="alert" class="alert">🚨 Nieuw signaal</div>
+
+<input id="tickerInput" placeholder="AAPL, TSLA">
+<button onclick="addTicker()">➕ Voeg toe</button>
+
+<div id="stocks"></div>
+
+</div>
+
+<script>
+
+let tickers = ["AAPL"];
+let previousSignals = {};
+
+async function getData(ticker) {
+  const url = `https://api.allorigins.win/raw?url=https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=5d&interval=1h`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  return data.chart.result[0].indicators.quote[0].close;
+}
+
+// 📊 Moving Average
+function MA(data, period) {
+  return data.slice(-period).reduce((a,b)=>a+b,0) / period;
+}
+
+// 📊 RSI
+function RSI(data, period=14) {
+  let gains=0, losses=0;
+
+  for(let i=data.length-period;i<data.length;i++){
+    let diff=data[i]-data[i-1];
+    if(diff>=0) gains+=diff;
+    else losses-=diff;
+  }
+
+  let rs = gains / losses;
+  return 100 - (100/(1+rs));
+}
+
+// 📊 CCI
+function CCI(data, period=20) {
+  let slice = data.slice(-period);
+  let avg = slice.reduce((a,b)=>a+b,0)/period;
+
+  let meanDev = slice.reduce((a,b)=>a+Math.abs(b-avg),0)/period;
+
+  return (data[data.length-1]-avg)/(0.015*meanDev);
+}
+
+// 🧠 Strategy
+function getSignal(data) {
+  let ma5 = MA(data,5);
+  let ma15 = MA(data,15);
+  let rsi = RSI(data);
+  let cci = CCI(data);
+
+  if(ma5 > ma15 && rsi > 50 && cci > 0) return "BUY";
+  if(ma5 < ma15 && rsi < 50 && cci < 0) return "SELL";
+
+  return "NEUTRAL";
+}
+
+// 🔔 Alert
+function alertUser() {
+  const box = document.getElementById("alert");
+  box.style.display = "block";
+
+  const audio = new Audio("https://www.soundjay.com/buttons/sounds/button-3.mp3");
+  audio.play();
+
+  setTimeout(()=> box.style.display="none",2000);
+}
+
+async function render() {
+  const container = document.getElementById("stocks");
+
+  for (let ticker of tickers) {
+
+    const data = await getData(ticker);
+    const signal = getSignal(data);
+    const old = previousSignals[ticker];
+
+    let card = document.getElementById(ticker);
+
+    if (!card) {
+      card = document.createElement("div");
+      card.id = ticker;
+      card.className = "card";
+      container.appendChild(card);
     }
-    </script>
-  </div>
-</div>
 
-<!-- 📊 MARKET OVERVIEW -->
-<div class="box">
-  <h3>🌍 Markt overzicht</h3>
+    if (old && old !== signal) alertUser();
 
-  <div class="tradingview-widget-container">
-    <div id="tv-market"></div>
-    <script src="https://s3.tradingview.com/external-embedding/embed-widget-market-overview.js">
-    {
-      "colorTheme": "dark",
-      "dateRange": "1D",
-      "showChart": true,
-      "locale": "nl",
-      "width": "100%",
-      "height": "400",
-      "tabs": [
-        {
-          "title": "Aandelen",
-          "symbols": [
-            {"s":"NASDAQ:AAPL"},
-            {"s":"NASDAQ:TSLA"},
-            {"s":"NASDAQ:NVDA"},
-            {"s":"NASDAQ:MSFT"}
-          ]
-        },
-        {
-          "title": "Crypto",
-          "symbols": [
-            {"s":"BINANCE:BTCUSDT"},
-            {"s":"BINANCE:ETHUSDT"}
-          ]
-        }
-      ]
-    }
-    </script>
-  </div>
-</div>
+    previousSignals[ticker] = signal;
 
-<!-- 📈 LIVE CHART -->
-<div class="box">
-  <h3>📈 Live Chart</h3>
+    card.className = "card " + (signal==="BUY"?"buy":"sell");
 
-  <div class="tradingview-widget-container">
-    <div id="tv-chart"></div>
-    <script src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js">
-    {
-      "symbol": "NASDAQ:AAPL",
-      "interval": "60",
-      "timezone": "Europe/Amsterdam",
-      "theme": "dark",
-      "style": "1",
-      "locale": "nl",
-      "width": "100%",
-      "height": "500"
-    }
-    </script>
-  </div>
-</div>
+    card.innerHTML = `
+      <h3>${ticker}</h3>
+      <p>📊 Signaal: <b>${signal}</b></p>
 
-</div>
+      <iframe src="https://s.tradingview.com/widgetembed/?symbol=${ticker}&interval=60"></iframe>
+    `;
+  }
+}
+
+function addTicker() {
+  const t = document.getElementById("tickerInput").value.toUpperCase();
+  if (t && !tickers.includes(t)) tickers.push(t);
+}
+
+// 🔄 smooth refresh
+setInterval(render, 15000);
+
+render();
+
+</script>
 
 </body>
 </html>
