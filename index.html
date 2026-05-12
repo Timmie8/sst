@@ -48,13 +48,15 @@ input {
 
 iframe {
   width: 100%;
-  height: 400px;
+  height: 350px;
   border: none;
   margin-top: 10px;
 }
 
-@media (max-width: 600px) {
-  iframe { height: 250px; }
+.status {
+  text-align: center;
+  margin: 10px;
+  color: #94a3b8;
 }
 </style>
 </head>
@@ -69,6 +71,8 @@ iframe {
 
 <button onclick="loadFeed()">🔄 Refresh</button>
 
+<div class="status" id="status">Laden...</div>
+
 <div id="feed"></div>
 
 </div>
@@ -77,29 +81,18 @@ iframe {
 
 let allData = [];
 
-async function loadFeed() {
-  const url = "https://api.rss2json.com/v1/api.json?rss_url=YOUR_RSS_URL";
-  const res = await fetch(url);
-  const data = await res.json();
-
-  allData = data.items;
-  renderData(allData);
-}
+// 🔥 DEMO DATA (altijd zichtbaar)
+const demoData = [
+  { title: "AAPL BUY breakout", link:"#", pubDate:new Date() },
+  { title: "TSLA SELL resistance hit", link:"#", pubDate:new Date() },
+  { title: "NVDA BUY momentum", link:"#", pubDate:new Date() }
+];
 
 function getSignal(title) {
   title = title.toLowerCase();
-
   if (title.includes("buy")) return "BUY";
   if (title.includes("sell")) return "SELL";
-
   return "NEUTRAL";
-}
-
-function playAlert(signal) {
-  if (signal === "BUY" || signal === "SELL") {
-    const audio = new Audio("https://www.soundjay.com/buttons/sounds/button-3.mp3");
-    audio.play();
-  }
 }
 
 function renderData(data) {
@@ -124,24 +117,50 @@ function renderData(data) {
       <a href="${item.link}" target="_blank">Lees meer →</a>
     `;
 
-    playAlert(signal);
     container.appendChild(card);
   });
+}
+
+async function loadFeed() {
+  const status = document.getElementById("status");
+
+  // Eerst demo tonen
+  renderData(demoData);
+  status.innerText = "Demo data geladen (wacht op live data...)";
+
+  try {
+    const url = "https://api.rss2json.com/v1/api.json?rss_url=YOUR_RSS_URL";
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (!data.items || data.items.length === 0) {
+      status.innerText = "⚠️ Geen live data gevonden - controleer RSS";
+      return;
+    }
+
+    allData = data.items;
+    renderData(allData);
+    status.innerText = "✅ Live data geladen";
+
+  } catch (e) {
+    status.innerText = "❌ Fout bij laden - demo actief";
+  }
 }
 
 function filterData() {
   const value = document.getElementById("filter").value.toLowerCase();
 
-  const filtered = allData.filter(item =>
-    item.title.toLowerCase().includes(value)
-  );
+  const filtered = allData.length
+    ? allData.filter(item => item.title.toLowerCase().includes(value))
+    : demoData.filter(item => item.title.toLowerCase().includes(value));
 
   renderData(filtered);
 }
 
 loadFeed();
 
-// Auto refresh elke 5 minuten
+// Auto refresh
 setInterval(loadFeed, 300000);
 
 </script>
