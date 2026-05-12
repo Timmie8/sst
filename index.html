@@ -9,7 +9,6 @@ body {
   font-family: Arial;
   background: #0f172a;
   color: white;
-  margin: 0;
 }
 
 header {
@@ -21,22 +20,17 @@ header {
 .container {
   max-width: 900px;
   margin: auto;
-  padding: 10px;
 }
 
-input {
+input, button {
   width: 100%;
   padding: 12px;
+  margin: 5px 0;
   border-radius: 8px;
   border: none;
-  margin-bottom: 10px;
 }
 
 button {
-  width: 100%;
-  padding: 12px;
-  border-radius: 8px;
-  border: none;
   background: #38bdf8;
   cursor: pointer;
 }
@@ -44,7 +38,7 @@ button {
 .card {
   background: #1e293b;
   padding: 15px;
-  margin: 10px 0;
+  margin-top: 10px;
   border-radius: 10px;
 }
 
@@ -62,35 +56,38 @@ iframe {
 
 <body>
 
-<header>📈 Live Trading Dashboard (Yahoo)</header>
+<header>📈 Live Trading Dashboard</header>
 
 <div class="container">
 
-<input type="text" id="tickerInput" placeholder="Bijv: AAPL, TSLA, NVDA">
-<button onclick="loadStock()">📊 Laad aandeel</button>
+<input id="ticker" placeholder="Bijv: AAPL, TSLA">
+<button onclick="loadStock()">Laad aandeel</button>
 
-<div id="result"></div>
+<div id="output"></div>
 
 </div>
 
 <script>
 
 async function loadStock() {
-  const ticker = document.getElementById("tickerInput").value.toUpperCase();
-  const container = document.getElementById("result");
+  const ticker = document.getElementById("ticker").value.toUpperCase();
+  const output = document.getElementById("output");
 
   if (!ticker) return;
 
-  container.innerHTML = "Laden...";
+  output.innerHTML = "Laden...";
 
   try {
-    const res = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`);
+    // ✅ PROXY FIX
+    const url = `https://api.allorigins.win/raw?url=https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`;
+
+    const res = await fetch(url);
     const data = await res.json();
 
     const stock = data.quoteResponse.result[0];
 
     if (!stock) {
-      container.innerHTML = "❌ Ticker niet gevonden";
+      output.innerHTML = "❌ Ticker niet gevonden";
       return;
     }
 
@@ -108,7 +105,7 @@ async function loadStock() {
       className = "sell";
     }
 
-    container.innerHTML = `
+    output.innerHTML = `
       <div class="card ${className}">
         <h2>${stock.symbol}</h2>
         <p>💰 Prijs: $${price}</p>
@@ -119,8 +116,8 @@ async function loadStock() {
       </div>
     `;
 
-  } catch (e) {
-    container.innerHTML = "❌ Fout bij laden data";
+  } catch (err) {
+    output.innerHTML = "❌ Laden mislukt (probeer andere ticker)";
   }
 }
 
