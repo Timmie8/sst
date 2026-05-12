@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>Trading Dashboard</title>
+
+<style>
+body {
+  font-family: Arial;
+  background: #0f172a;
+  color: white;
+  margin: 0;
+}
+
+header {
+  text-align: center;
+  padding: 20px;
+  font-size: 24px;
+}
+
+.container {
+  max-width: 1000px;
+  margin: auto;
+  padding: 10px;
+}
+
+input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  border: none;
+}
+
+.card {
+  background: #1e293b;
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: 10px;
+}
+
+.buy { border-left: 5px solid #22c55e; }
+.sell { border-left: 5px solid #ef4444; }
+
+.signal {
+  font-weight: bold;
+}
+
+iframe {
+  width: 100%;
+  height: 400px;
+  border: none;
+  margin-top: 10px;
+}
+
+@media (max-width: 600px) {
+  iframe { height: 250px; }
+}
+</style>
+</head>
+
+<body>
+
+<header>📈 Trading Dashboard</header>
+
+<div class="container">
+
+<input type="text" id="filter" placeholder="🔎 Filter op ticker..." onkeyup="filterData()">
+
+<button onclick="loadFeed()">🔄 Refresh</button>
+
+<div id="feed"></div>
+
+</div>
+
+<script>
+
+let allData = [];
+
+async function loadFeed() {
+  const url = "https://api.rss2json.com/v1/api.json?rss_url=YOUR_RSS_URL";
+  const res = await fetch(url);
+  const data = await res.json();
+
+  allData = data.items;
+  renderData(allData);
+}
+
+function getSignal(title) {
+  title = title.toLowerCase();
+
+  if (title.includes("buy")) return "BUY";
+  if (title.includes("sell")) return "SELL";
+
+  return "NEUTRAL";
+}
+
+function playAlert(signal) {
+  if (signal === "BUY" || signal === "SELL") {
+    const audio = new Audio("https://www.soundjay.com/buttons/sounds/button-3.mp3");
+    audio.play();
+  }
+}
+
+function renderData(data) {
+  const container = document.getElementById("feed");
+  container.innerHTML = "";
+
+  data.forEach(item => {
+
+    const signal = getSignal(item.title);
+    const ticker = item.title.split(" ")[0];
+
+    const card = document.createElement("div");
+    card.className = "card " + (signal === "BUY" ? "buy" : signal === "SELL" ? "sell" : "");
+
+    card.innerHTML = `
+      <div><b>${ticker}</b> - ${item.title}</div>
+      <div class="signal">📊 Signaal: ${signal}</div>
+      <div>${new Date(item.pubDate).toLocaleString()}</div>
+
+      <iframe src="https://s.tradingview.com/widgetembed/?symbol=${ticker}&interval=60"></iframe>
+
+      <a href="${item.link}" target="_blank">Lees meer →</a>
+    `;
+
+    playAlert(signal);
+    container.appendChild(card);
+  });
+}
+
+function filterData() {
+  const value = document.getElementById("filter").value.toLowerCase();
+
+  const filtered = allData.filter(item =>
+    item.title.toLowerCase().includes(value)
+  );
+
+  renderData(filtered);
+}
+
+loadFeed();
+
+// Auto refresh elke 5 minuten
+setInterval(loadFeed, 300000);
+
+</script>
+
+</body>
+</html>
